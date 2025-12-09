@@ -1,0 +1,290 @@
+import numpy as np
+import pandas as pd 
+import tkinter as tk
+import customtkinter as ctk
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
+from ttkbootstrap.widgets import Floodgauge
+from ttkbootstrap import Style 
+import optuna
+import xgboost as xgb
+from tkinter import messagebox
+import webbrowser
+import joblib 
+from sklearn.metrics import (accuracy_score, precision_score, recall_score, f1_score,confusion_matrix, mean_absolute_error, mean_squared_error, r2_score, silhouette_score, davies_bouldin_score, calinski_harabasz_score
+)
+
+# -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Webpage link demonstration
+# -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+webpage_link = "Explainable Hybridized Machine Learning for Prediction of Compressive Strength of Fly-Ash based Geopolymer Concrete"
+def open_link(event):
+    webbrowser.open_new(webpage_link)
+
+
+#----------------------------------------------------------------------------------------------------------------------------------
+#  PAGE 1 for the applictaion
+#----------------------------------------------------------------------------------------------------------------------------------
+
+Page1 = ttk.Window(themename="yeti")
+Page1.geometry("1080x720")
+Page1.title("GPC Strength Model")
+Page1.configure(borderwidth=3, relief='solid')
+Page1.columnconfigure(0, weight=1, pad=20)
+Page1.rowconfigure(0, weight=1, pad=20)
+Page1.resizable(True,True)
+
+
+Main_Frame = ttk.Frame(Page1)
+#Main_Frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+Main_Frame.pack(fill="both", expand=True)
+
+#----------------------------------------------------------------------------------------------------------------------------------
+#  HEADING OF THE BOX
+#----------------------------------------------------------------------------------------------------------------------------------
+heading = ttk.Label(Main_Frame,text="Prediction model for Geopolymer Concrete",bootstyle="inverse-primary", font=("Helvetica", 24, "bold"), anchor="center")
+heading.place(relx=0.5, y=20, anchor="n")
+
+#----------------------------------------------------------------------------------------------------------------------------------
+#  PARAMETER BOX
+#----------------------------------------------------------------------------------------------------------------------------------
+frame = ttk.Labelframe(Page1, text="Input Parameters", padding=(10,10))
+frame.place(x=20, y=200, width=540, height=340)
+
+frame2 = ttk.Labelframe(Page1, text="Parameters Suggestion", padding=(10,10))
+frame2.place(x=580, y=200, width=480, height=340)
+
+frame3 = ttk.Labelframe(Page1, text="Prediction: ", padding=(10,10))
+frame3.place(x=20, y=530, width=540, height=80)
+
+highlight_box1 = ctk.CTkFrame( Main_Frame, corner_radius= 10, border_width= 2, border_color="red", fg_color="transparent")
+highlight_box1.place(x=10, y=70)
+
+text_parameters = "Parameters: Alkaline concentration (AC, kg), Molarity Ratio (MR, mol/L), Liquid-to-Fly Ash Mass Ratio (LFR), Curing Temperature (CTR, °C), Curing Time (CTP, days), and Compressive strength (CS, MPa)"
+Label2 = ctk.CTkLabel(highlight_box1,text = text_parameters,  font=("Segoe UI", 16, "bold"), text_color="red", wraplength= 800)
+Label2.pack(padx=30, pady=7)
+
+
+#----------------------------------------------------------------------------------------------------------------------------------
+#  Prediction for input box
+#----------------------------------------------------------------------------------------------------------------------------------
+''' 
+Label3 = ctk.CTkLabel(Main_Frame, text="Input Parameters: ", font=("Segoe UI", 18, "bold", "underline"), text_color="black")
+Label3.place(x=20, y= 160) 
+
+Label4 = ctk.CTkLabel(Main_Frame, text="Suggest Parameters for: ", font=("Segoe UI", 18, "bold", "underline"), text_color="black")
+Label4.place(x=600, y= 160)
+'''
+
+label5 = ctk.CTkLabel(frame2, text= "CS: ", font=("Segoe UI", 15, "bold"), text_color="black")
+label5.place(x=100, y= 10)
+
+label6 = ctk.CTkLabel(frame2, text= "Trial: ", font=("Segoe UI", 15, "bold"), text_color="black")
+label6.place(x=100, y= 50)
+
+# Entry , write input to the box
+entry_CS = ctk.CTkEntry(frame2, width=140)
+entry_CS.place(x=160, y=10)
+
+values = [25, 50, 100, 250, 500, 1000]
+
+# Create Combobox
+combo = ttk.Combobox(frame2, values=values,bootstyle="info",width=18, height=5)
+combo.set(values[0])  
+combo.place(x=200, y=60)
+
+
+#----------------------------------------------------------------------------------------------------------------------------------
+#  Prediction for output box
+#----------------------------------------------------------------------------------------------------------------------------------
+
+# Dictionary to store input values
+input_values = {}
+
+# Function to validate and store the input
+def validate_and_store(index):
+    value = entries[index].get()
+    try:
+        # Try converting to float
+        numeric_value = float(value)
+        input_values[f"value{index+1}"] = numeric_value
+        messagebox.showinfo("Success", f"Value {index+1} saved: {numeric_value}")
+    except ValueError:
+        messagebox.showerror("Error", f"Value {index+1} must be numeric!")
+
+# Lists to hold entry widgets
+entries = []
+
+labels_text = ["AC:", "MR: ", "LFR:", "CTR:", "CTP:"]
+notes_text = ["Note: Enter the float values for AC, MR, and LFR, and the integer values for CTP and CTR"]
+labels_text_s = ["15-25", "1-2", "0.33-0.6","23,50","1-28"]
+
+lbl_range = ctk.CTkLabel(frame, text="Range", font=("Segoe UI", 10), text_color="gray")
+lbl_range.place(x=350, y=0)
+
+x_start =100; y_start= 20; y_gap=35
+for i in range(5):
+    # Label
+    lbl = ctk.CTkLabel(frame, text=labels_text[i], font=("Segoe UI", 15, "bold"), text_color="black")
+    lbl.place(x=x_start, y=y_start + i*y_gap)
+
+    # Entry , write input to the box
+    entry = ctk.CTkEntry(frame)
+    entry.place(x=x_start+50, y=y_start + i*y_gap)
+    entries.append(entry)
+
+    lbl2 = ctk.CTkLabel(frame, text=labels_text_s[i], font=("Segoe UI", 10), text_color="gray")
+    lbl2.place(x=x_start+250, y=y_start + i*y_gap)
+
+    # Note Label
+    '''
+    if i==0:
+        highlight_box2 = ctk.CTkFrame(Main_Frame, corner_radius=0, border_width=2, border_color="yellow", fg_color="transparent")
+        highlight_box2.place(x=x_start+250, y=y_start) 
+        note_lbl = ctk.CTkLabel(highlight_box2, text=notes_text[0], font=("Segoe UI", 12, "underline"), text_color="green")
+        note_lbl.pack(padx=4, pady=2) 
+    '''                                            
+
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------------
+# VALIDATE THE ENTRIES AND PREDICT THE OUTPUT
+#------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Function to validate all entries
+
+def validate_entries():
+    count =0 
+    text_CS = "                                          "
+    Label_CS = ctk.CTkLabel(frame3, text= text_CS, font=("Segoe UI", 18, "bold"), text_color="black")
+    Label_CS.place(x=100, y=5)
+
+    y_pred_test =None
+    values = []
+    for i, entry in enumerate(entries):
+        val = entry.get()
+        try:
+            if i<3:
+                num = float(val)  # check numeric
+                values.append(num)
+            else:
+                num = int(val)  # check numeric
+                values.append(num)
+
+        except ValueError:
+            count = count +1 
+            messagebox.showerror("Error", f"Entry {labels_text[i]} is not in given format! \n Float: AC, MR, LFR \n Integer: CTR, CTP")
+            return count # stop at first invalid entry
+
+    # If all numeric, assign to variables
+    print(values)
+    messagebox.showinfo("Success!", "Values are entered in correct format")
+
+    # -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    # Pipeline imprompt
+    # -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    def load_pipeline (path):
+        obj = joblib.load(path)
+        if isinstance(obj, dict) and 'pipeline' in obj:
+            return obj['pipeline']
+        return obj
+    
+    mopso = load_pipeline('PSO-XGB-5rkf3.pkl')
+    feature_names = ['AC', 'MR', 'LFR', 'CTR', 'CTP' ]
+    df = pd.DataFrame([values], columns=feature_names)
+
+    
+    def predict_value(numerical_values): 
+        numerical_values = np.array(numerical_values).reshape(1, -1)
+        y_pred = mopso.predict(df)
+
+        return round(float(y_pred[0]), 3)
+
+    y_pred_value = predict_value(values)
+    text_CS = f"CS:    {y_pred_value:.3f} MPa"
+    Label_CS = ctk.CTkLabel(frame3, text= text_CS, font=("Segoe UI", 18, "bold"), text_color="black")
+    Label_CS.place(x=100, y=5)
+
+# Button to check all entries
+check_btn = ctk.CTkButton(frame, text="Predict", command=validate_entries, font=("Segoe UI", 13, "bold"))
+check_btn.place(x=150, y=200)
+
+
+# -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Input Suggestion
+# -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+def suggestion():
+    target_CS= entry_CS
+    target_CS = float(target_CS.get())
+    best_params = []
+
+    def load_pipeline(path):
+        obj = joblib.load(path)
+        if isinstance(obj, dict) and "pipeline" in obj:
+            return obj["pipeline"]
+        return obj
+
+    model = load_pipeline("MOPSO-XGB-10cv.pkl")
+
+    # -------------------------
+    # Optuna Objective Function
+    # -------------------------
+    def objective(trial):
+        all_params = {
+            "AC": trial.suggest_int("AC", 15, 20 ),
+            "MR": trial.suggest_float("MR", 1,2),
+            "LFR": trial.suggest_float("LFR", 0.33,0.6),
+            "CTR": trial.suggest_categorical("CTR", [23,50]),
+            "CTP": trial.suggest_categorical("CTP", [1,3,7,28])
+        }
+
+        # Convert to DataFrame matching feature order
+        feature_order = ["AC", "MR", "LFR", "CTR", "CTP"]
+        df_input = pd.DataFrame([all_params[f] for f in feature_order]).T
+        df_input.columns = feature_order
+
+        # Prediction
+        y_pred = model.predict(df_input)[0]
+        return abs(y_pred - target_CS)
+
+    # -------------------------
+    # Run Optuna Search
+    # -------------------------
+    study = optuna.create_study(direction="minimize")
+    study.optimize(objective, n_trials= int(combo.get()))
+
+    # Extract best parameters
+    best_params = study.best_params
+    formatted_params = {k: round(v, 2) for k, v in best_params.items()}
+
+    # Prepare for output
+    feature_order = ["AC", "MR", "LFR", "CTR", "CTP"]
+    df_best = pd.DataFrame([[best_params[f] for f in feature_order]], columns=feature_order)
+
+    best_pred = model.predict(df_best)[0]
+
+    text_obtained = f"Best Parameters:{formatted_params}, and CS: {best_pred:.3f}"
+    Label_IS = ctk.CTkLabel(frame2, text= text_obtained, font=("Segoe UI", 14, "bold"), text_color="black", wraplength=270)
+    Label_IS.place(x=80, y=140)
+
+check_btn = ctk.CTkButton(frame2, text="Predict", command= suggestion, font=("Segoe UI", 13, "bold"))
+check_btn.place(x=160, y=90)
+
+
+# -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Input Suggestion
+# -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+'''
+Label_end= ctk.CTkLabel(Main_Frame, text=webpage_link, font=("Segoe UI", 12, "bold", "underline"),     text_color="blue",     cursor="hand2")
+Label_end.place(x= 120, y=528) 
+
+Label_end= ctk.CTkLabel(Main_Frame, text= "Original Paper: ", font=("Segoe UI", 14, "bold"), text_color="black")
+Label_end.place(x=20, y=530)
+''' 
+
+end_text = f"@ Subodh Subedi @ Ajaya Subedi"
+Label_end = ctk.CTkLabel(Main_Frame, text= end_text, font=("Arial", 12, "bold"), text_color="black")
+Label_end.place(x=650, y=540)
+
+
+Main_Frame.grid_rowconfigure(0, weight=1)
+Main_Frame.grid_columnconfigure(0, weight=1)
+Page1.mainloop()
